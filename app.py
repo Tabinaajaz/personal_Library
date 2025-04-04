@@ -1,51 +1,135 @@
-import streamlit as st
-import pandas as pd
+import json
+import os
 
-# Load or create book database
-BOOKS_FILE = "books.csv"
+# File to store library data
+LIBRARY_FILE = "library.json"
 
-try:
-    books_df = pd.read_csv(BOOKS_FILE)
-except FileNotFoundError:
-    books_df = pd.DataFrame(columns=["Title", "Author", "Genre", "Year", "Status"])
+# Load library from file if it exists
+def load_library():
+    if os.path.exists(LIBRARY_FILE):
+        with open(LIBRARY_FILE, "r") as file:
+            return json.load(file)
+    return []
 
-st.title("📚 Personal Library Manager")
+# Save library to file
+def save_library(library):
+    with open(LIBRARY_FILE, "w") as file:
+        json.dump(library, file, indent=4)
 
-# Add a new book
-st.sidebar.header("📖 Add a New Book")
-title = st.sidebar.text_input("Book Title")
-author = st.sidebar.text_input("Author")
-genre = st.sidebar.text_input("Genre")
-year = st.sidebar.number_input("Year", min_value=1000, max_value=2100, step=1)
-status = st.sidebar.selectbox("Status", ["Unread", "Reading", "Read"])
+# Add a book
+def add_book(library):
+    title = input("Enter the book title: ").strip()
+    author = input("Enter the author: ").strip()
+    year = input("Enter the publication year: ").strip()
+    genre = input("Enter the genre: ").strip()
+    read_status = input("Have you read this book? (yes/no): ").strip().lower() == "yes"
+    
+    # Validate year input
+    if not year.isdigit():
+        print("Invalid year! Please enter a valid number.")
+        return
+    
+    book = {
+        "Title": title,
+        "Author": author,
+        "Year": int(year),
+        "Genre": genre,
+        "Read": read_status
+    }
+    library.append(book)
+    save_library(library)
+    print("Book added successfully!")
 
-if st.sidebar.button("Add Book"):
-    new_book = pd.DataFrame([[title, author, genre, year, status]], columns=books_df.columns)
-    books_df = pd.concat([books_df, new_book], ignore_index=True)
-    books_df.to_csv(BOOKS_FILE, index=False)
-    st.sidebar.success(f"✅ '{title}' added successfully!")
+# Remove a book
+def remove_book(library):
+    title = input("Enter the title of the book to remove: ").strip()
+    for book in library:
+        if book["Title"].lower() == title.lower():
+            library.remove(book)
+            save_library(library)
+            print("Book removed successfully!")
+            return
+    print("Book not found!")
 
-# Display the library
-st.subheader("📚 My Book Collection")
-if not books_df.empty:
-    st.dataframe(books_df)
+# Search for a book
+def search_book(library):
+    print("Search by:\n1. Title\n2. Author")
+    choice = input("Enter your choice: ").strip()
+    
+    if choice == "1":
+        key = "Title"
+    elif choice == "2":
+        key = "Author"
+    else:
+        print("Invalid choice!")
+        return
 
-    # Search books
-    search_term = st.text_input("🔍 Search by Title or Author")
-    if search_term:
-        filtered_books = books_df[
-            books_df["Title"].str.contains(search_term, case=False, na=False) |
-            books_df["Author"].str.contains(search_term, case=False, na=False)
-        ]
-        st.dataframe(filtered_books)
+    query = input(f"Enter the {key.lower()}: ").strip().lower()
+    matches = [book for book in library if query in book[key].lower()]
+    
+    if matches:
+        print("\nMatching Books:")
+        for i, book in enumerate(matches, start=1):
+            print(f"{i}. {book['Title']} by {book['Author']} ({book['Year']}) - {book['Genre']} - {'Read' if book['Read'] else 'Unread'}")
+    else:
+        print("No matching books found.")
 
-    # Remove book
-    remove_title = st.selectbox("❌ Remove a Book", books_df["Title"])
-    if st.button("Remove Book"):
-        books_df = books_df[books_df["Title"] != remove_title]
-        books_df.to_csv(BOOKS_FILE, index=False)
-        st.success(f"🚮 '{remove_title}' removed successfully!")
+# Display all books
+def display_books(library):
+    if not library:
+        print("Your library is empty.")
+        return
+    
+    print("\nYour Library:")
+    for i, book in enumerate(library, start=1):
+        print(f"{i}. {book['Title']} by {book['Author']} ({book['Year']}) - {book['Genre']} - {'Read' if book['Read'] else 'Unread'}")
 
-else:
-    st.warning("📭 No books in your collection yet. Add one!")
+# Display statistics
+def display_statistics(library):
+    total_books = len(library)
+    if total_books == 0:
+        print("Your library is empty.")
+        return
+    
+    read_books = sum(1 for book in library if book["Read"])
+    percentage_read = (read_books / total_books) * 100
+    
+    print("\nLibrary Statistics:")
+    print(f"Total books: {total_books}")
+    print(f"Percentage read: {percentage_read:.2f}%")
 
+# Main menu
+def main():
+    library = load_library()
+    
+    while True:
+        print("\nWelcome to your Personal Library Manager!")
+        print("1. Add a book")
+        print("2. Remove a book")
+        print("3. Search for a book")
+        print("4. Display all books")
+        print("5. Display statistics")
+        print("6. Exit")
+        
+        choice = input("Enter your choice: ").strip()
+        
+        if choice == "1":
+            add_book(library)
+        elif choice == "2":
+            remove_book(library)
+        elif choice == "3":
+            search_book(library)
+        elif choice == "4":
+            display_books(library)
+        elif choice == "5":
+            display_statistics(library)
+        elif choice == "6":
+            save_library(library)
+            print("Library saved to file. Goodbye!")
+            break
+        else:
+            print("Invalid choice! Please enter a number between 1 and 6.")
+
+if __name__ == "__main__":
+    main()
+# This script provides a simple command-line interface for managing a personal library.
